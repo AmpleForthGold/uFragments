@@ -7,7 +7,7 @@ module.exports = {
     ganacheUnitTest: connectionConfig.ganacheUnitTest,
     gethUnitTest: connectionConfig.gethUnitTest,
     testrpcCoverage: connectionConfig.testrpcCoverage,
-    rinkeby: {
+    rink_e_by: {
       provider: () => new HDWalletProvider(
         mnemonic, `https://rinkeby.infura.io/v3/${projectId}`
       ),
