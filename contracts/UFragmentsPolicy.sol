@@ -229,6 +229,17 @@ contract UFragmentsPolicy is Ownable {
     }
 
     /**
+     * @notice Sets the baseCpi.
+     * @param baseCpi_ The base cpi value.
+     */
+    function setBaseCpi(uint256 baseCpi_)
+        external
+        onlyOwner
+    {
+        baseCpi = baseCpi_;
+    }
+
+    /**
      * @dev ZOS upgradable contract initialization method.
      *      It is called at the time of contract creation to invoke parent class initializers and
      *      initialize the contract's state variables.

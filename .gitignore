@@ -72,3 +72,11 @@ scDebugLog
 coverage.json
 coverage/
 coverageEnv/
+
+.openzeppelin/.session
+.openzeppelin/*
+
+secrets.json
+
+package.json
+package-lock.json
