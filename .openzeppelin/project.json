@@ -1,0 +1,26 @@
+{
+  "manifestVersion": "2.2",
+  "contracts": {
+    "UFragments": "UFragments",
+    "UFragmentsPolicy": "UFragmentsPolicy"
+  },
+  "dependencies": {},
+  "name": "uFragments",
+  "version": "0.0.1",
+  "compiler": {
+    "compilerSettings": {
+      "optimizer": {
+        "enabled": false,
+        "runs": "200"
+      }
+    },
+    "typechain": {
+      "enabled": false
+    },
+    "manager": "openzeppelin",
+    "artifactsDir": "build/contracts",
+    "contractsDir": "contracts",
+    "solcVersion": "0.4.24"
+  },
+  "telemetryOptIn": true
+}

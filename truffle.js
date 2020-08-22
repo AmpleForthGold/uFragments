@@ -19,7 +19,7 @@ module.exports = {
         mnemonic, `https://mainnet.infura.io/v3/${projectId}`
       ),
       networkId: 1,
-      gasPrice: 30e9 // check https://www.ethgasstation.info/
+      gasPrice: 167e9 // check https://www.ethgasstation.info/
     }
   },
   compilers: {
