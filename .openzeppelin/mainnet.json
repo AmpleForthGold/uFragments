@@ -195,6 +195,13 @@
         "admin": "0xBde846697b27232192BfDa4Cb87D6c90f1345Ce8",
         "kind": "Upgradeable"
       }
+    ],
+    "uFragments/TokenTimelock": [
+      {
+        "address": "0x34628b19f2267f31e4aCEe652A234216903e2385",
+        "kind": "NonProxy",
+        "bytecodeHash": "9bdd083713dc16bfd0a5fbb2bfa61c9d5c1cbf9d945b4a3d8f25aeb3986c7084"
+      }
     ]
   },
   "manifestVersion": "2.2",
