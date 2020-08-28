@@ -194,6 +194,37 @@
         "implementation": "0x175578dec2aF45F6e55e41182A1394526F0312Dc",
         "admin": "0x4885DE4f8D96AD19009eDe3b8a3fF883Acfe7edc",
         "kind": "Upgradeable"
+      },
+      {
+        "address": "0x375c884DeB1e9834Aabd49918e5e97ed87C9Dd0A",
+        "version": "0.0.1",
+        "implementation": "0x175578dec2aF45F6e55e41182A1394526F0312Dc",
+        "admin": "0x4885DE4f8D96AD19009eDe3b8a3fF883Acfe7edc",
+        "kind": "Upgradeable"
+      }
+    ],
+    "uFragments/AFGTokenTimelock": [
+      {
+        "address": "0xF487940E9070C1039aA018Aa74b777F2D4c4Ee4a",
+        "kind": "NonProxy",
+        "bytecodeHash": "45371cee9fc296397101f3efda6eb705d182085d6a2e393e8135fe1929a5edf1"
+      },
+      {
+        "address": "0x5e3F6e8769b20dD8884A4002347c4a3F5679bf1e",
+        "kind": "NonProxy",
+        "bytecodeHash": "45371cee9fc296397101f3efda6eb705d182085d6a2e393e8135fe1929a5edf1"
+      },
+      {
+        "address": "0xcE43415E87d90a52f9E074fe091Ee376C874Be64",
+        "kind": "NonProxy",
+        "bytecodeHash": "6efaeaceebf2170b654e949fb9ffc9cd03eae994e6ea53f586a486908aa6d20f"
+      }
+    ],
+    "uFragments/TokenTimelock": [
+      {
+        "address": "0x5C5a70ED72d7CC2Bfb7FFe2F80AE8e7a51B25570",
+        "kind": "NonProxy",
+        "bytecodeHash": "45371cee9fc296397101f3efda6eb705d182085d6a2e393e8135fe1929a5edf1"
       }
     ]
   },
