@@ -226,6 +226,23 @@
         "kind": "NonProxy",
         "bytecodeHash": "45371cee9fc296397101f3efda6eb705d182085d6a2e393e8135fe1929a5edf1"
       }
+    ],
+    "uFragments/RebaseDelta": [
+      {
+        "address": "0xE96833008B4FDd9280E19433f29b70CE6CB6F6e1",
+        "kind": "NonProxy",
+        "bytecodeHash": "b7035d5e4624b633518ccdcdb612ecd1c567668f24b76fb7ea6a9ee58b0a2656"
+      },
+      {
+        "address": "0xE883FcbF373aDd250c8bAF1a05e58581F7A8bAdA",
+        "kind": "NonProxy",
+        "bytecodeHash": "658dfc62a1136250cb61d2d3a73b06b2ecd5fd2f870e819effcedfe97296fb6f"
+      },
+      {
+        "address": "0x975d60879c23bfA96A18141bdb18bA43Ad1c6c47",
+        "kind": "NonProxy",
+        "bytecodeHash": "3a31a51873608473ecb83afe34dd68951c1f7bdd45dbb41f10dfa7e00a2c08e8"
+      }
     ]
   },
   "manifestVersion": "2.2",
