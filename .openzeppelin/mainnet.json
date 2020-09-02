@@ -202,6 +202,13 @@
         "kind": "NonProxy",
         "bytecodeHash": "9bdd083713dc16bfd0a5fbb2bfa61c9d5c1cbf9d945b4a3d8f25aeb3986c7084"
       }
+    ],
+    "uFragments/RebaseDelta": [
+      {
+        "address": "0xF09402111AF6409B410A8Dd07B82F1cd1674C55F",
+        "kind": "NonProxy",
+        "bytecodeHash": "3a31a51873608473ecb83afe34dd68951c1f7bdd45dbb41f10dfa7e00a2c08e8"
+      }
     ]
   },
   "manifestVersion": "2.2",
