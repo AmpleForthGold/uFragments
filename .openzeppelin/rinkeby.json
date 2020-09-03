@@ -243,6 +243,28 @@
         "kind": "NonProxy",
         "bytecodeHash": "3a31a51873608473ecb83afe34dd68951c1f7bdd45dbb41f10dfa7e00a2c08e8"
       }
+    ],
+    "uFragments/Orchestrator": [
+      {
+        "address": "0x2a2Ee32A3Db81BabD0602FbdCDF00bd0439A486A",
+        "kind": "NonProxy",
+        "bytecodeHash": "37f9d3494f7500f5175dda6a5d9400790fe3a0d01af10562a8d60978a01aa689"
+      },
+      {
+        "address": "0x8be61848924C0941a623f594A64d04a71A34130f",
+        "kind": "NonProxy",
+        "bytecodeHash": "30b4e55c7ea8ae36ddd81a1f6baa2763e803a70f21c50671d7fdb82f99ee10b8"
+      },
+      {
+        "address": "0x779E90c99Acf84ed7ED22a1c4f16d872C3662653",
+        "kind": "NonProxy",
+        "bytecodeHash": "c7211e9c4f897e95757853379c7550b3798fd9698aedb30c4ff2c81770fc29dc"
+      },
+      {
+        "address": "0x698921Ae1cBC99B1E0d8912e01Ae46F1032C5Ae4",
+        "kind": "NonProxy",
+        "bytecodeHash": "d2ff2cc301d87522e41e5097c5963cacb4ab3e296badb1c4b10adeeec9074eef"
+      }
     ]
   },
   "manifestVersion": "2.2",

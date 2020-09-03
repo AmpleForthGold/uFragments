@@ -17,9 +17,9 @@ library RB_SafeMath {
         require(y == 0 || (z = x * y) / y == x, 'ds-math-mul-overflow');
     }
 
-    function div(uint x, uint y) internal pure returns (uint z) {
+    function div(uint x, uint y) internal pure returns (uint) {
         require(y != 0);
-        z = x / y;    
+        return x / y;    
     }
 }
 
@@ -36,9 +36,9 @@ library RB_UnsignedSafeMath {
         require(y == 0 || (z = x * y) / y == x, 'ds-math-mul-overflow');
     }
 
-    function div(int x, int y) internal pure returns (int z) {
+    function div(int x, int y) internal pure returns (int) {
         require(y != 0);
-        z = x / y;    
+        return x / y;    
     }
 }
 
