@@ -5,7 +5,6 @@ import "openzeppelin-eth/contracts/ownership/Ownable.sol";
 import "./UFragments.sol";
 import "./RebaseDelta.sol";
 
-
 /**
  * @title Orchestrator 
  * @notice The orchestrator is the main entry point for rebase operations. It coordinates the rebase
@@ -16,7 +15,7 @@ import "./RebaseDelta.sol";
  * It is a merge and modification of the Orchestrator.sol and UFragmentsPolicy.sol from the original 
  * Ampleforth project. Thansk to the Ampleforth.org team!
  *
- * Code snippets & ideas also come from the RMPL.IO (RAmple Project), YAM team and BASED team. 
+ * Code ideas also come from the RMPL.IO (RAmple Project), YAM team and BASED team. 
  * Thanks to the all whoose ideas we stole! 
  *
  * Transactions have been removed because of cost (GAS) and to lower the complexity of the contract.
@@ -40,57 +39,62 @@ import "./RebaseDelta.sol";
  */
 contract Orchestrator is Ownable {
 
+    using SafeMath for uint16;
     using SafeMath for uint256;
     using SafeMathInt for int256;
-  //  using UInt256Lib for uint256;
-
-    // the ERC20 Token for ampleforthgold
-    UFragments public afgToken;
-
+    
+    // The ERC20 Token for ampleforthgold
+    UFragments public afgToken = UFragments(0x8E54954B3Bbc07DbE3349AEBb6EAFf8D91Db5734);
+    
+    // oracle configuration - see RebaseDelta.sol for details.
+    RebaseDelta public oracle = RebaseDelta(0xF09402111AF6409B410A8Dd07B82F1cd1674C55F);
+    IUniswapV2Pair public tokenPairX = IUniswapV2Pair(0x2d0C51C1282c31d71F035E15770f3214e20F6150);
+    IUniswapV2Pair public tokenPairY = IUniswapV2Pair(0x9C4Fe5FFD9A9fC5678cFBd93Aa2D4FD684b67C4C);
+    bool public flipX = false;
+    bool public flipY = false;
+    uint8 public decimalsX = 9;
+    uint8 public decimalsY = 9;
+    
     // The timestamp of the last rebase event generated from this contract.
     // Technically another contract cauld also cause a rebase event, 
-    // so this cannot be relied on globally.
+    // so this cannot be relied on globally. uint64 should not clock
+    // over in forever. 
     uint64 public lastRebase = uint64(0);
 
-    // oracle configuration - see RebaseDelta.sol for details.
-    IUniswapV2Pair public tokenPairX = IUniswapV2Pair(0);
-    bool public flipX = false;
-    uint8 public decimalsX = 9;
-    IUniswapV2Pair public tokenPairY = IUniswapV2Pair(0);
-    bool public flipY = false;
-    uint8 public decimalsY = 9;
-    RebaseDelta public oracle = RebaseDelta(0);
+    // The number of rebase cycles since inception. Why the original
+    // designers did not keep this inside uFragments is a question
+    // that really deservers an answer? We can use a uint16 cause we
+    // will be about 179 years old before it clocks over. 
+    uint16 public epoch = 3;
 
     /**
-     * @param afgToken_ Address of the Ampleforthgold UFragments ERC20 token.
+     * Just initializes the base class.
      */
-    constructor(address afgToken_) 
+    constructor() 
         public {
         Ownable.initialize(msg.sender);
-        afgToken = UFragments(afgToken_);
     }
 
     /**
      * @notice Owner entry point to initiate a rebase operation.
      * @param supplyDelta the delta as passed to afgToken.rebase.
-     *        (the delta needs to be calulated off chain).
+     *        (the delta needs to be calulated off chain or by the 
+     *        calling contract).
      * @param disable_ passing true will disable the ability of 
      *        users (other then the owner) to cause a rebase.
      *
      * The owner can always generate a rebase operation. At some point in the future
-     * the owners keys shall be burnt. However at this time (and until we a certain
+     * the owners keys shall be burnt. However at this time (and until we are certain
      * everthing is working as it should) the owners shall keep their keys.
      * The ability for the owners to generate a rebase of any value at any time is a 
      * carry over from the original ampleforth project. This function is just a little
      * more direct.  
      */ 
-    function godMode(int256 supplyDelta, bool disable_)
+    function ownerForcedRebase(int256 supplyDelta, bool disable_)
         external
         onlyOwner
         returns (uint256)
     {
-        require (msg.sender == tx.origin);
-
         /* If lastrebase is set to 0 then *users* cannot cause a rebase. 
          * This should allow the owner to disable the auto-rebase operations if
          * things go wrong (see things go wrong above). */
@@ -100,11 +104,12 @@ contract Orchestrator is Ownable {
             lastRebase = uint64(block.timestamp);
         }
          
-        return afgToken.rebase(block.timestamp, supplyDelta);
+        return afgToken.rebase(epoch.add(1), supplyDelta);
     }
 
     /**
      * @notice Main entry point to initiate a rebase operation.
+     *         On success returns the new supply value.
      */
     function rebase()
         external
@@ -114,7 +119,7 @@ contract Orchestrator is Ownable {
         //   (1) Something went wrong and we need a rebase now!
         //   (2) At some random time at least 24 hours, but no more then 48
         //       hours after the last rebase.  
-        if ((msg.sender == tx.origin) && Ownable.isOwner())
+        if (Ownable.isOwner())
         {
             return internal_rebase();
         }
@@ -143,18 +148,24 @@ contract Orchestrator is Ownable {
         // changes then we would like to re-write this bit of code to provide
         // true random rebases where no one gets an advantage. 
         // 
-        // After 1 day, anyone can call this rebase function to generate 
-        // a rebase. However to give it a little bit of complexity and 
-        // mildly lower the ability of traders/miners to take advantage 
+        // A day after the last rebase, anyone can call this rebase function
+        // to generate a rebase. However to give it a little bit of complexity 
+        // and mildly lower the ability of traders/miners to take advantage 
         // of the rebase we will set the *fair* odds of a rebase() call
         // succeeding at 20%. Of course it can still be gamed, but this 
         // makes gaming it just that little bit harder.
         // 
-        // To game it the miner would need to adjust his coinbase to 
+        // MINERS: To game it the miner would need to adjust his coinbase to 
         // correctly solve the xor with the preceeding block hashs,
         // That is do-able, but the miner would need to go out of there
         // way to do it...but no perfect solutions so this is it at the
         // moment.  
+        //
+        // TRADERS: To game it they could just call this function many times
+        // until it triggers. They have a 20% chance of triggering each 
+        // time they call it. They could get lucky, or they could burn a lot of 
+        // GAS. Whatever they do it will be obvious from the many calls to this
+        // function. 
         uint256 odds = uint256(blockhash(block.number - 1)) ^ uint256(block.coinbase);
         if ((odds % uint256(5)) == uint256(1))
         {
@@ -169,12 +180,14 @@ contract Orchestrator is Ownable {
      * @notice Internal entry point to initiate a rebase operation.
      *         If we get here then a rebase call to the erc20 token 
      *         will occur.
+     * 
+     *         returns the new supply value.
      */
     function internal_rebase() 
         private 
         returns(uint256) {
         lastRebase = uint64(block.timestamp);
-        return afgToken.rebase(block.timestamp, calculateRebaseDelta(true));
+        return afgToken.rebase(epoch.add(1), calculateRebaseDelta(true));
     }
 
     /**
@@ -211,7 +224,8 @@ contract Orchestrator is Ownable {
      * @param limited_ passing true will limit the rebase based on the 5% rule. 
      */
     function calculateRebaseDelta(bool limited_) 
-        public 
+        public
+        view 
         returns (int256) 
         { 
             require (afgToken != UFragments(0));
@@ -222,7 +236,7 @@ contract Orchestrator is Ownable {
             require (decimalsY != uint8(0));
             
             uint256 supply = afgToken.totalSupply();
-            int256 delta = oracle.calculate(
+            int256 delta = - oracle.calculate(
                 tokenPairX,
                 flipX,
                 decimalsX,
@@ -243,43 +257,39 @@ contract Orchestrator is Ownable {
             }
 
             /** 5% rules: 
-             *      (1) Never rebase more then 5%. 
-             *      (2) If the price is in the +-5% range do not rebase at all. This 
+             *      (1) If the price is in the +-5% range do not rebase at all. This 
              *          allows the market to fix the price to within a 10% range.
-             *      (3) If the price is within +-10% range then only rebase by 1%.
+             *      (2) If the price is within +-10% range then only rebase by 1%.
+             *      (3) If the price is more then +-10% then the change shall be half the 
+             *          delta. i.e. if the price diff is -28% then the change will be -14%.
              */
             int256 supply5p = int256(supply.div(uint256(20))); // 5% == 5/100 == 1/20
-            require (supply5p != int256(0));
-
+   
             if (delta < int256(0)) {
                 if (-delta < supply5p) {
-                    return int256(0);
+                    return int256(0); // no rebase: 5% rule (1)
                 }
                 if (-delta < supply5p.mul(int256(2))) {
-                    return (-supply5p).div(int256(5)); // 1%
+                    return (-supply5p).div(int256(5)); // -1% rebase
                 }
-                return -supply5p;
             } else {
                 if (delta < supply5p) {
-                    return int256(0);
+                    return int256(0); // no rebase: 5% rule (1)
                 }
                 if (delta < supply5p.mul(int256(2))) {
-                    return supply5p.div(int256(5)); // 1%
+                    return supply5p.div(int256(5)); // +1% rebase
                 }
-                return supply5p;
             }
 
-            // should never get here....
-            require(false);
+            return (delta.div(2)); // half delta rebase
     }
 
     // for testing purposes only!
     // winds back time a day at a time. 
     function windbacktime() 
         public
-        onlyOwner { 
-            if (lastRebase != uint64(0)) {
-                lastRebase-= 1 days;
-        }
+        onlyOwner {         
+        require (lastRebase > 1 days);
+        lastRebase-= 1 days;
     }
 }
