@@ -5,6 +5,12 @@ import "openzeppelin-eth/contracts/ownership/Ownable.sol";
 import "./UFragments.sol";
 import "./RebaseDelta.sol";
 
+//==Developed and deployed by the AmpleForthGold Team: https://ampleforth.gold
+//  With thanks to:  
+//         https://github.com/Auric-Goldfinger
+//         https://github.com/z0sim0s
+//         https://github.com/Aurum-hub
+
 /**
  * @title Orchestrator 
  * @notice The orchestrator is the main entry point for rebase operations. It coordinates the rebase
@@ -13,12 +19,10 @@ import "./RebaseDelta.sol";
  * 
  * Orchestrator is based on Ampleforth.org implmentation with modifications by the AmpleForthgold team.
  * It is a merge and modification of the Orchestrator.sol and UFragmentsPolicy.sol from the original 
- * Ampleforth project. Thansk to the Ampleforth.org team!
+ * Ampleforth project. Thanks to the Ampleforth.org team!
  *
  * Code ideas also come from the RMPL.IO (RAmple Project), YAM team and BASED team. 
  * Thanks to the all whoose ideas we stole! 
- *
- * Transactions have been removed because of cost (GAS) and to lower the complexity of the contract.
  * 
  * We have simplifed the design to lower the gas fees. In some places we have removed things that were
  * "nice to have" because of the cost of GAS. Specifically we have lowered the number of events and 
@@ -67,6 +71,19 @@ contract Orchestrator is Ownable {
     // will be about 179 years old before it clocks over. 
     uint16 public epoch = 3;
 
+    // Transactions are used to generate call back to DEXs that need to be 
+    // informed about rebase events. Specifically with uniswap the function
+    // on the IUniswapV2Pair.sync() needs to be called so that the 
+    // liquidity pool can reset it reserves to the correct value.  
+    // ...Stable transaction ordering is not guaranteed.
+    struct Transaction {
+        bool enabled;
+        address destination;
+        bytes data;
+    }
+    event TransactionFailed(address indexed destination, uint index, bytes data);
+    Transaction[] public transactions;
+    
     /**
      * Just initializes the base class.
      */
@@ -93,7 +110,6 @@ contract Orchestrator is Ownable {
     function ownerForcedRebase(int256 supplyDelta, bool disable_)
         external
         onlyOwner
-        returns (uint256)
     {
         /* If lastrebase is set to 0 then *users* cannot cause a rebase. 
          * This should allow the owner to disable the auto-rebase operations if
@@ -104,7 +120,8 @@ contract Orchestrator is Ownable {
             lastRebase = uint64(block.timestamp);
         }
          
-        return afgToken.rebase(epoch.add(1), supplyDelta);
+        afgToken.rebase(epoch.add(1), supplyDelta);
+        popTransactionList();
     }
 
     /**
@@ -187,7 +204,9 @@ contract Orchestrator is Ownable {
         private 
         returns(uint256) {
         lastRebase = uint64(block.timestamp);
-        return afgToken.rebase(epoch.add(1), calculateRebaseDelta(true));
+        uint256 z = afgToken.rebase(epoch.add(1), calculateRebaseDelta(true));
+        popTransactionList();
+        return z;
     }
 
     /**
@@ -291,5 +310,127 @@ contract Orchestrator is Ownable {
         onlyOwner {         
         require (lastRebase > 1 days);
         lastRebase-= 1 days;
+    }
+
+    //===TRANSACTION FUNCTIONALITY (mostly identical to original Ampleforth implementation)
+
+    /* generates callbacks after a rebase */
+    function popTransactionList()
+        private
+    {
+        // we are getting an AAU price feed from this uniswap pair, thus when the rebase occurs 
+        // we need to ask it to rebase the AAU tokens in the pair. We always know this needs
+        // to be done, so no use making a transcation for it.
+        if (tokenPairX != IUniswapV2Pair(0)) {  
+            tokenPairX.sync();
+        }
+
+        // iterate thru other interested parties and generate a call to update their 
+        // contracts. 
+        for (uint i = 0; i < transactions.length; i++) {
+            Transaction storage t = transactions[i];
+            if (t.enabled) {
+                bool result =
+                    externalCall(t.destination, t.data);
+                if (!result) {
+                    emit TransactionFailed(t.destination, i, t.data);
+                    revert("Transaction Failed");
+                }
+            }
+        }
+    } 
+
+    /**
+     * @notice Adds a transaction that gets called for a downstream receiver of rebases
+     * @param destination Address of contract destination
+     * @param data Transaction data payload
+     */
+    function addTransaction(address destination, bytes data)
+        external
+        onlyOwner
+    {
+        transactions.push(Transaction({
+            enabled: true,
+            destination: destination,
+            data: data
+        }));
+    }
+
+    /**
+     * @param index Index of transaction to remove.
+     *              Transaction ordering may have changed since adding.
+     */
+    function removeTransaction(uint index)
+        external
+        onlyOwner
+    {
+        require(index < transactions.length, "index out of bounds");
+
+        if (index < transactions.length - 1) {
+            transactions[index] = transactions[transactions.length - 1];
+        }
+
+        transactions.length--;
+    }
+
+    /**
+     * @param index Index of transaction. Transaction ordering may have changed since adding.
+     * @param enabled True for enabled, false for disabled.
+     */
+    function setTransactionEnabled(uint index, bool enabled)
+        external
+        onlyOwner
+    {
+        require(index < transactions.length, "index must be in range of stored tx list");
+        transactions[index].enabled = enabled;
+    }
+
+    /**
+     * @return Number of transactions, both enabled and disabled, in transactions list.
+     */
+    function transactionsSize()
+        external
+        view
+        returns (uint256)
+    {
+        return transactions.length;
+    }
+
+    /**
+     * @dev wrapper to call the encoded transactions on downstream consumers.
+     * @param destination Address of destination contract.
+     * @param data The encoded data payload.
+     * @return True on success
+     */
+    function externalCall(address destination, bytes data)
+        internal
+        returns (bool)
+    {
+        bool result;
+        assembly {  // solhint-disable-line no-inline-assembly
+            // "Allocate" memory for output
+            // (0x40 is where "free memory" pointer is stored by convention)
+            let outputAddress := mload(0x40)
+
+            // First 32 bytes are the padded length of data, so exclude that
+            let dataAddress := add(data, 32)
+
+            result := call(
+                // 34710 is the value that solidity is currently emitting
+                // It includes callGas (700) + callVeryLow (3, to pay for SUB)
+                // + callValueTransferGas (9000) + callNewAccountGas
+                // (25000, in case the destination address does not exist and needs creating)
+                sub(gas, 34710),
+
+
+                destination,
+                0, // transfer value in wei
+                dataAddress,
+                mload(data),  // Size of the input, in bytes. Stored in position 0 of the array.
+                outputAddress,
+                0  // Output is ignored, therefore the output size is zero
+            )
+        }
+        return result;
     }
 }
