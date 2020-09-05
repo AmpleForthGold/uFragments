@@ -209,6 +209,13 @@
         "kind": "NonProxy",
         "bytecodeHash": "3a31a51873608473ecb83afe34dd68951c1f7bdd45dbb41f10dfa7e00a2c08e8"
       }
+    ],
+    "uFragments/Orchestrator": [
+      {
+        "address": "0x0E31B7D208491A00Ed8f2AfA97C6a353dF8C7363",
+        "kind": "NonProxy",
+        "bytecodeHash": "ab671e67a2703ead258bca872f3c7fcea187363d51aa91960558affe54f9cc13"
+      }
     ]
   },
   "manifestVersion": "2.2",
