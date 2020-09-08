@@ -111,7 +111,7 @@ contract RebaseDelta {
     using RB_SafeMath for uint256;
     using RB_UnsignedSafeMath for int256;
     
-    uint256 private constant PRICE_PRECISION = 10**9;
+    uint256 private constant PRICE_PRECISION = 10**24;
 
     function getPrice(IUniswapV2Pair pair_, bool flip_) 
     public
