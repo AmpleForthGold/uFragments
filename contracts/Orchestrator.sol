@@ -69,7 +69,7 @@ contract Orchestrator is Ownable {
     // designers did not keep this inside uFragments is a question
     // that really deservers an answer? We can use a uint16 cause we
     // will be about 179 years old before it clocks over. 
-    uint16 public epoch = 3;
+    uint16 public epoch = 365;
 
     // Transactions are used to generate call back to DEXs that need to be 
     // informed about rebase events. Specifically with uniswap the function
@@ -120,7 +120,7 @@ contract Orchestrator is Ownable {
             lastRebase = uint64(block.timestamp);
         }
          
-        afgToken.rebase(epoch.add(1), supplyDelta);
+        afgToken.rebase(epoch++, supplyDelta);
         popTransactionList();
     }
 
@@ -204,7 +204,7 @@ contract Orchestrator is Ownable {
         private 
         returns(uint256) {
         lastRebase = uint64(block.timestamp);
-        uint256 z = afgToken.rebase(epoch.add(1), calculateRebaseDelta(true));
+        uint256 z = afgToken.rebase(epoch++, calculateRebaseDelta(true));
         popTransactionList();
         return z;
     }
