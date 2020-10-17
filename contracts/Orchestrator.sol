@@ -4,6 +4,7 @@ import "openzeppelin-eth/contracts/ownership/Ownable.sol";
 
 import "./UFragments.sol";
 import "./RebaseDelta.sol";
+import "./IRebaseCalc.sol";
 
 //==Developed and deployed by the AmpleForthGold Team: https://ampleforth.gold
 //  With thanks to:  
@@ -41,7 +42,7 @@ import "./RebaseDelta.sol";
  * it may be needed...but we hope it is not needed.  
  *      
  */
-contract Orchestrator is Ownable {
+contract Orchestrator is Ownable, IRebaseCalc {
 
     using SafeMath for uint16;
     using SafeMath for uint256;
@@ -58,6 +59,11 @@ contract Orchestrator is Ownable {
     bool public flipY = false;
     uint8 public decimalsX = 9;
     uint8 public decimalsY = 9;
+
+    // hard coded sync calls. 
+    IUniswapV2Pair AMPL_AAU_Pair = IUniswapV2Pair(0xCdc3D2c8C79091b9b63A70A98716e3b40d1299D4);
+    IUniswapV2Pair PAXG_AAU_Pair = IUniswapV2Pair(0x225C01e8C5310714bCb8e8cEF68D5814348EFDEb);
+    IUniswapV2Pair PMGT_AAU_Pair = IUniswapV2Pair(0x15f7B9a0c5FE2F33D3dbDf1bCdB1F6dC7bED10B1);
     
     // The timestamp of the last rebase event generated from this contract.
     // Technically another contract cauld also cause a rebase event, 
@@ -119,7 +125,7 @@ contract Orchestrator is Ownable {
         } else {
             lastRebase = uint64(block.timestamp);
         }
-         
+        
         afgToken.rebase(epoch++, supplyDelta);
         popTransactionList();
     }
@@ -134,63 +140,25 @@ contract Orchestrator is Ownable {
     {
         // The owner shall call this member for the following reasons:
         //   (1) Something went wrong and we need a rebase now!
-        //   (2) At some random time at least 24 hours, but no more then 48
-        //       hours after the last rebase.  
+        //   (2) At some random time at least 24 hours after the last rebase.  
         if (Ownable.isOwner())
         {
             return internal_rebase();
         }
 
         // we require at least 1 owner rebase event prior to being enabled!
-        require (lastRebase != uint64(0));        
+        if (lastRebase == uint64(0)) {
+            return uint256(0);
+        }        
 
         // at least 24 hours shall have passed since the last rebase event.
-        require (lastRebase + 1 days < uint64(block.timestamp));
-
-        // if more then 48 hours have passed then allow a rebase from anyone
-        // willing to pay the GAS.
-        if (lastRebase + 2 days < uint64(block.timestamp))
-        {
-            return internal_rebase();
+        if (lastRebase + 1 days > uint64(block.timestamp)) {
+            return uint256(0);
         }
 
-        // There is (currently) no way of generating a random number in a 
-        // contract that cannot be seen/used by the miner. Thus a big miner 
-        // could use information on a rebase for their advantage. We do not
-        // want to give any advantage to a big miner over a little trader,
-        // thus the traders ability to generate and see a rebase (ahead of time)
-        // should be about the same as a that of a large miners.
-        //
-        // If (in the future) the ability to provide true randomeness 
-        // changes then we would like to re-write this bit of code to provide
-        // true random rebases where no one gets an advantage. 
-        // 
-        // A day after the last rebase, anyone can call this rebase function
-        // to generate a rebase. However to give it a little bit of complexity 
-        // and mildly lower the ability of traders/miners to take advantage 
-        // of the rebase we will set the *fair* odds of a rebase() call
-        // succeeding at 20%. Of course it can still be gamed, but this 
-        // makes gaming it just that little bit harder.
-        // 
-        // MINERS: To game it the miner would need to adjust his coinbase to 
-        // correctly solve the xor with the preceeding block hashs,
-        // That is do-able, but the miner would need to go out of there
-        // way to do it...but no perfect solutions so this is it at the
-        // moment.  
-        //
-        // TRADERS: To game it they could just call this function many times
-        // until it triggers. They have a 20% chance of triggering each 
-        // time they call it. They could get lucky, or they could burn a lot of 
-        // GAS. Whatever they do it will be obvious from the many calls to this
-        // function. 
-        uint256 odds = uint256(blockhash(block.number - 1)) ^ uint256(block.coinbase);
-        if ((odds % uint256(5)) == uint256(1))
-        {
-            return internal_rebase(); 
-        }      
-
-        // no change, no rebase!
-        return uint256(0);
+        // if more then 24 hours have passed then allow a rebase from anyone
+        // willing to pay the GAS.
+        return internal_rebase();
     }
 
     /**
@@ -318,13 +286,14 @@ contract Orchestrator is Ownable {
     function popTransactionList()
         private
     {
-        // we are getting an AAU price feed from this uniswap pair, thus when the rebase occurs 
+        // we are getting an AAU price feed from these uniswap pairs, thus when the rebase occurs 
         // we need to ask it to rebase the AAU tokens in the pair. We always know this needs
         // to be done, so no use making a transcation for it.
-        if (tokenPairX != IUniswapV2Pair(0)) {  
-            tokenPairX.sync();
-        }
-
+        tokenPairX.sync();
+        AMPL_AAU_Pair.sync();
+        PMGT_AAU_Pair.sync();
+        PAXG_AAU_Pair.sync();
+        
         // iterate thru other interested parties and generate a call to update their 
         // contracts. 
         for (uint i = 0; i < transactions.length; i++) {

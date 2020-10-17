@@ -6,6 +6,8 @@ import "openzeppelin-eth/contracts/token/ERC20/ERC20Detailed.sol";
 
 import "./lib/SafeMathInt.sol";
 
+import "./IRebaseCalc.sol";
+
 
 /**
  * @title uFragments ERC20 token
@@ -77,6 +79,9 @@ contract UFragments is ERC20Detailed, Ownable {
     // it's fully paid.
     mapping (address => mapping (address => uint256)) private _allowedFragments;
 
+    // The timestamp of the last rebase event generated from this contract.
+    uint64 public lastRebase = uint64(0);
+
     /**
      * @param monetaryPolicy_ The address of the monetary policy contract to use for authentication.
      */
@@ -87,6 +92,15 @@ contract UFragments is ERC20Detailed, Ownable {
         monetaryPolicy = monetaryPolicy_;
         emit LogMonetaryPolicyUpdated(monetaryPolicy_);
     }
+    
+    //function internal_rebase() 
+    //    private 
+    //    returns(uint256) {
+        
+    //    uint256 z = afgToken.rebase(epoch++, calculateRebaseDelta(true));
+    //    popTransactionList();
+    //    return z;
+   // }
 
     /**
      * @dev Notifies Fragments contract about a new rebase cycle.
@@ -125,8 +139,9 @@ contract UFragments is ERC20Detailed, Ownable {
         // deviation is guaranteed to be < 1, so we can omit this step. If the supply cap is
         // ever increased, it must be re-included.
         // _totalSupply = TOTAL_GONS.div(_gonsPerFragment)
-
+        lastRebase = uint64(block.timestamp);
         emit LogRebase(epoch, _totalSupply);
+        
         return _totalSupply;
     }
 
