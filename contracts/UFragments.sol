@@ -79,9 +79,6 @@ contract UFragments is ERC20Detailed, Ownable {
     // it's fully paid.
     mapping (address => mapping (address => uint256)) private _allowedFragments;
 
-    // The timestamp of the last rebase event generated from this contract.
-    uint64 public lastRebase = uint64(0);
-
     /**
      * @param monetaryPolicy_ The address of the monetary policy contract to use for authentication.
      */
@@ -93,14 +90,11 @@ contract UFragments is ERC20Detailed, Ownable {
         emit LogMonetaryPolicyUpdated(monetaryPolicy_);
     }
     
-    //function internal_rebase() 
-    //    private 
-    //    returns(uint256) {
-        
-    //    uint256 z = afgToken.rebase(epoch++, calculateRebaseDelta(true));
-    //    popTransactionList();
-    //    return z;
-   // }
+    function internal_rebase() private {
+        if (monetaryPolicy != 0) {
+            (IRebaseCalc(monetaryPolicy)).rebase();
+        }
+    }
 
     /**
      * @dev Notifies Fragments contract about a new rebase cycle.
@@ -139,9 +133,7 @@ contract UFragments is ERC20Detailed, Ownable {
         // deviation is guaranteed to be < 1, so we can omit this step. If the supply cap is
         // ever increased, it must be re-included.
         // _totalSupply = TOTAL_GONS.div(_gonsPerFragment)
-        lastRebase = uint64(block.timestamp);
-        emit LogRebase(epoch, _totalSupply);
-        
+        emit LogRebase(epoch, _totalSupply);        
         return _totalSupply;
     }
 
@@ -254,7 +246,8 @@ contract UFragments is ERC20Detailed, Ownable {
         returns (bool)
     {
         _allowedFragments[msg.sender][spender] = value;
-        emit Approval(msg.sender, spender, value);
+        internal_rebase();
+        emit Approval(msg.sender, spender, _allowedFragments[msg.sender][spender]);
         return true;
     }
 
@@ -271,6 +264,7 @@ contract UFragments is ERC20Detailed, Ownable {
     {
         _allowedFragments[msg.sender][spender] =
             _allowedFragments[msg.sender][spender].add(addedValue);
+        internal_rebase();
         emit Approval(msg.sender, spender, _allowedFragments[msg.sender][spender]);
         return true;
     }
@@ -291,6 +285,7 @@ contract UFragments is ERC20Detailed, Ownable {
         } else {
             _allowedFragments[msg.sender][spender] = oldValue.sub(subtractedValue);
         }
+        internal_rebase();
         emit Approval(msg.sender, spender, _allowedFragments[msg.sender][spender]);
         return true;
     }
