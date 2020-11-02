@@ -52,13 +52,13 @@ contract Orchestrator is Ownable, IRebaseCalc {
     UFragments public afgToken = UFragments(0x8E54954B3Bbc07DbE3349AEBb6EAFf8D91Db5734);
     
     // oracle configuration - see RebaseDelta.sol for details.
-    RebaseDelta public oracle = RebaseDelta(0xF09402111AF6409B410A8Dd07B82F1cd1674C55F);
+    RebaseDelta public oracle = RebaseDelta(0x7d45Fd7e1d1aFD48DA7f10093d8d1ee5deA8cf08);
     IUniswapV2Pair public tokenPairX = IUniswapV2Pair(0x2d0C51C1282c31d71F035E15770f3214e20F6150);
     IUniswapV2Pair public tokenPairY = IUniswapV2Pair(0x9C4Fe5FFD9A9fC5678cFBd93Aa2D4FD684b67C4C);
-    bool public flipX = false;
-    bool public flipY = false;
+    bool public flipX = true;
+    bool public flipY = true;
     uint8 public decimalsX = 9;
-    uint8 public decimalsY = 9;
+    uint8 public decimalsY = 18;
 
     // hard coded sync calls. 
     IUniswapV2Pair AMPL_AAU_Pair = IUniswapV2Pair(0xCdc3D2c8C79091b9b63A70A98716e3b40d1299D4);
@@ -69,7 +69,7 @@ contract Orchestrator is Ownable, IRebaseCalc {
     // Technically another contract cauld also cause a rebase event, 
     // so this cannot be relied on globally. uint64 should not clock
     // over in forever. 
-    uint64 public lastRebase = uint64(0);
+    uint64 public lastRebase = uint64(1603991760);
 
     // The number of rebase cycles since inception. Why the original
     // designers did not keep this inside uFragments is a question
@@ -138,14 +138,6 @@ contract Orchestrator is Ownable, IRebaseCalc {
         external
         returns (uint256)
     {
-        // The owner shall call this member for the following reasons:
-        //   (1) Something went wrong and we need a rebase now!
-        //   (2) At some random time at least 24 hours after the last rebase.  
-        if (Ownable.isOwner())
-        {
-            return internal_rebase();
-        }
-
         // we require at least 1 owner rebase event prior to being enabled!
         if (lastRebase == uint64(0)) {
             return uint256(0);
@@ -170,7 +162,8 @@ contract Orchestrator is Ownable, IRebaseCalc {
      */
     function internal_rebase() 
         private 
-        returns(uint256) {
+        returns(uint256) 
+    {
         lastRebase = uint64(block.timestamp);
         uint256 z = afgToken.rebase(epoch++, calculateRebaseDelta(true));
         popTransactionList();
@@ -195,14 +188,14 @@ contract Orchestrator is Ownable, IRebaseCalc {
                       RebaseDelta oracle_)
         external
         onlyOwner
-        {
-            tokenPairX = tokenPairX_;
-            flipX = flipX_;
-            decimalsX = decimalsX_;
-            tokenPairY = tokenPairY_;
-            flipY = flipY_;
-            decimalsY = decimalsY_;
-            oracle = oracle_;
+    {
+        tokenPairX = tokenPairX_;
+        flipX = flipX_;
+        decimalsX = decimalsX_;
+        tokenPairY = tokenPairY_;
+        flipY = flipY_;
+        decimalsY = decimalsY_;
+        oracle = oracle_;
     }
 
     /**
@@ -214,70 +207,60 @@ contract Orchestrator is Ownable, IRebaseCalc {
         public
         view 
         returns (int256) 
-        { 
-            require (afgToken != UFragments(0));
-            require (oracle != RebaseDelta(0));
-            require (tokenPairX != IUniswapV2Pair(0));
-            require (tokenPairY != IUniswapV2Pair(0));
-            require (decimalsX != uint8(0));
-            require (decimalsY != uint8(0));
+    { 
+        require (afgToken != UFragments(0));
+        require (oracle != RebaseDelta(0));
+        require (tokenPairX != IUniswapV2Pair(0));
+        require (tokenPairY != IUniswapV2Pair(0));
+        require (decimalsX != uint8(0));
+        require (decimalsY != uint8(0));
             
-            uint256 supply = afgToken.totalSupply();
-            int256 delta = - oracle.calculate(
-                tokenPairX,
-                flipX,
-                decimalsX,
-                supply, 
-                tokenPairY,
-                flipY,
-                decimalsY);
+        uint256 supply = afgToken.totalSupply();
+        int256 delta = - oracle.calculate(
+            tokenPairX,
+            flipX,
+            decimalsX,
+            supply, 
+            tokenPairY,
+            flipY,
+            decimalsY);
 
-            if (!limited_) {
-                // Unlimited (brutal) rebase.
-                return delta;
-            }   
+        if (!limited_) {
+            // Unlimited (brutal) rebase.
+            return delta;
+        }   
 
-            if (delta == int256(0))
-            {
-                // no rebase needed!
-                return int256(0);
-            }
+        if (delta == int256(0)) {
+            // no rebase needed!
+            return int256(0);
+        }
 
-            /** 5% rules: 
-             *      (1) If the price is in the +-5% range do not rebase at all. This 
-             *          allows the market to fix the price to within a 10% range.
-             *      (2) If the price is within +-10% range then only rebase by 1%.
-             *      (3) If the price is more then +-10% then the change shall be half the 
-             *          delta. i.e. if the price diff is -28% then the change will be -14%.
-             */
-            int256 supply5p = int256(supply.div(uint256(20))); // 5% == 5/100 == 1/20
+        /** 5% rules: 
+         *      (1) If the price is in the +-5% range do not rebase at all. This 
+         *          allows the market to fix the price to within a 10% range.
+         *      (2) If the price is within +-10% range then only rebase by 1%.
+         *      (3) If the price is more then +-10% then the change shall be half the 
+         *          delta. i.e. if the price diff is -28% then the change will be -14%.
+         */
+        int256 supply5p = int256(supply.div(uint256(20))); // 5% == 5/100 == 1/20
    
-            if (delta < int256(0)) {
-                if (-delta < supply5p) {
-                    return int256(0); // no rebase: 5% rule (1)
-                }
-                if (-delta < supply5p.mul(int256(2))) {
-                    return (-supply5p).div(int256(5)); // -1% rebase
-                }
-            } else {
-                if (delta < supply5p) {
-                    return int256(0); // no rebase: 5% rule (1)
-                }
-                if (delta < supply5p.mul(int256(2))) {
-                    return supply5p.div(int256(5)); // +1% rebase
-                }
+        if (delta < int256(0)) {
+            if (-delta < supply5p) {
+                return int256(0); // no rebase: 5% rule (1)
             }
+            if (-delta < supply5p.mul(int256(2))) {
+                return (-supply5p).div(int256(5)); // -1% rebase
+            }
+        } else {
+            if (delta < supply5p) {
+                return int256(0); // no rebase: 5% rule (1)
+            }
+            if (delta < supply5p.mul(int256(2))) {
+                return supply5p.div(int256(5)); // +1% rebase
+            }
+        }
 
-            return (delta.div(2)); // half delta rebase
-    }
-
-    // for testing purposes only!
-    // winds back time a day at a time. 
-    function windbacktime() 
-        public
-        onlyOwner {         
-        require (lastRebase > 1 days);
-        lastRebase-= 1 days;
+        return (delta.div(2)); // half delta rebase
     }
 
     //===TRANSACTION FUNCTIONALITY (mostly identical to original Ampleforth implementation)
